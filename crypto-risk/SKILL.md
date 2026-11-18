@@ -11,7 +11,7 @@ description: >-
 # crypto-risk
 
 A BLOCK is final for that ticket: do not argue it away or offer to send it anyway; change the plan or the size
-and check again. Limits live in `crypto/config.json` under `risk`; only the user changes them.
+and check again. Limits are the `risk` part of `settings`; change them only when the user asks.
 
 ## How to run it
 
@@ -22,7 +22,8 @@ If the `bytx-trader` MCP server is connected, call its tool `risk_check`. Otherw
 bytx-trader risk
 ```
 
-State lives in `crypto/` in the project (override with `BYTX_TRADER_HOME`); settings in `crypto/config.json`
-(see `config.example.json` in the pack). The mode is `paper` unless the user changed it: say so.
+State lives in `~/bytx-trader` (the project's `crypto/` if it has one; `BYTX_TRADER_HOME` overrides). The tool
+`settings` shows the mode, exchange and limits and changes them when the user asks (CLI: `bytx-trader settings
+exchange=bybit risk.max_loss_per_trade=5`). The mode is `paper` unless the user changed it: say so.
 
 Not financial advice. Most people who trade actively lose money.

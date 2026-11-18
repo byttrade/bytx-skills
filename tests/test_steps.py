@@ -353,3 +353,47 @@ def test_client_id_fits_every_exchange():
         assert client_id_format(ccxt_id).fullmatch(cid), (name, cid)
         assert cid == trade.client_id(name, 'bb2ba5a8e3695a77')       # deterministic
         assert cid != trade.client_id(name, 'cc2ba5a8e3695a77')
+
+
+# ─── 0.1.3: easy for any agent — settings from chat, any symbol spelling, error reasons reach the model ─
+
+def test_settings_change_and_refuse(env):
+    from bytx_trader import trade
+    r = trade.settings({'exchange': 'bybit', 'risk': {'max_loss_per_trade': 5}, 'session': {'start': '13:30'}})
+    assert r['config']['exchange'] == 'bybit' and r['config']['risk']['max_loss_per_trade'] == 5
+    assert core.load_config()['session']['start'] == '13:30' and 'Saved' in r['text']
+    for bad in ({'mode': 'real'}, {'allow_real': True}, {'exchange': 'ftx'}, {'risk': {'max_loss_per_trade': 'five'}},
+                {'session': {'start': '25:00'}}, {'session': {'timeframe': '7m'}}, {'nope': 1}, {'risk': 3}):
+        with pytest.raises(ValueError):
+            trade.settings(bad)
+    assert core.load_config()['session']['start'] == '13:30'   # a refused change writes nothing
+    assert trade.settings({'session': {'entry_until': None}})['config']['session']['entry_until'] is None
+
+
+def test_symbol_any_spelling():
+    cfg = dict(core.DEFAULT_CONFIG)
+    for s in ('BTC', 'btc', 'BTCUSDT', 'btc-usdt', 'BTC/USDT'):
+        assert core.norm_symbol(cfg, s) == 'BTC/USDT'
+    assert core.norm_symbol({**cfg, 'exchange': 'hyperliquid'}, 'eth') == 'ETH/USDC'
+    assert core.norm_symbol(cfg, 'BTC/USDT:USDT') == 'BTC/USDT:USDT'
+
+
+def test_home_default(monkeypatch, tmp_path):
+    monkeypatch.delenv('BYTX_TRADER_HOME', raising=False)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv('HOME', str(tmp_path / 'u'))
+    assert core.home() == tmp_path / 'u' / 'bytx-trader'     # e.g. Claude Desktop: no project folder
+    (tmp_path / 'crypto').mkdir()
+    assert core.home() == tmp_path / 'crypto'                # a project keeps its own crypto/
+
+
+async def test_mcp_error_reason_reaches_the_model(env):
+    from mcp.client.client import Client
+    from bytx_trader.mcp_server import mcp
+    async with Client(mcp) as c:
+        r = await c.call_tool('size', {})
+        assert r.is_error and 'run exit_plan' in r.content[0].text
+        r = await c.call_tool('settings', {'changes': {'mode': 'real'}})
+        assert r.is_error and 'paper or demo' in r.content[0].text
+        r = await c.call_tool('settings', {})
+        assert not r.is_error and 'Mode paper' in r.content[0].text

@@ -10,10 +10,7 @@
         "--from",
         "bytx-trader@latest",
         "bytx-trader-mcp"
-      ],
-      "env": {
-        "BYTX_TRADER_HOME": "/absolute/path/to/your/project/crypto"
-      }
+      ]
     }
   }
 }

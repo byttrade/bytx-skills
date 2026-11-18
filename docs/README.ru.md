@@ -15,8 +15,11 @@
 Нужен [uv](https://docs.astral.sh/uv/) (`brew install uv`).
 
 **Любой MCP-клиент** (Claude Desktop, Claude Code, Cursor …): добавить сервер в конфиг клиента, шаблоны —
-в [`mcp-configs/`](../mcp-configs/) (запуск через `uvx --from bytx-trader@latest bytx-trader-mcp`). Без uv:
-`pip install bytx-trader` и команда `bytx-trader-mcp`. Начать с фразы «просканируй крипторынок» или с промпта сервера
+в [`mcp-configs/`](../mcp-configs/) (запуск через `uvx --from bytx-trader@latest bytx-trader-mcp`), путей указывать
+не нужно. Без uv: `pip install bytx-trader` и команда `bytx-trader-mcp`. Дальше просто говорите с ассистентом:
+«просканируй крипторынок», «переключись на Bybit, риск 5 долларов на сделку», «спланируй лонг по ETH со стопом 1,5 ATR»,
+«какие у меня позиции». Символы — как угодно (`BTC`, `btcusdt`, `BTC/USDT`); настройки показывает и меняет инструмент
+`settings`, данные лежат в `~/bytx-trader`. Можно начать и с промпта сервера
 `trade_pipeline`. Инструмент `confirm` держите в режиме «спрашивать каждый раз».
 
 **Только Claude, дополнительно:** `/plugin marketplace add byttrade/bytx-skills`, `/plugin install bytx-trader@bytx-skills`
@@ -34,7 +37,7 @@
 ## Режимы
 
 - **paper** (по умолчанию) — живой стакан биржи, виртуальный баланс, реальные комиссии; ключи не нужны.
-- **demo** — `"mode": "demo"` в `crypto/config.json`, ключи demo биржи в окружении сервера (`BYTX_API_KEY`,
+- **demo** — «переключись на demo» (`settings`), ключи demo биржи в окружении сервера (`BYTX_API_KEY`,
   `BYTX_SECRET`, для OKX/KuCoin/Bitget ещё `BYTX_PASSWORD`; для Hyperliquid — `BYTX_WALLET_ADDRESS` и `BYTX_PRIVATE_KEY`). В чат ключи не вставлять.
 - **real** — этот пакет реальные ордера не отправляет: они идут через hosted BYTtrade MCP на [byttrade.com](https://byttrade.com).
 

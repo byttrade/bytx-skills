@@ -44,7 +44,7 @@ async def size(risk_usdt: Optional[float] = None, leverage: Optional[float] = No
     cfg = core.load_config()
     plan = core.read('plan.json')
     if not plan:
-        raise ValueError('no crypto/plan.json: run the exit planner first')
+        raise ValueError('no trade plan yet: run exit_plan for a symbol first')
     risk_usdt = float(risk_usdt or cfg['risk']['max_loss_per_trade'])
     leverage = float(leverage or cfg['default_leverage'])
     # sized on the account it will trade (paper or demo book); real mode sizes on a paper copy of the live book
@@ -138,7 +138,7 @@ def risk_check() -> dict:
     cfg, now = core.load_config(), core.now_ms()
     tickets = core.read('orders.json') or []
     if not tickets:
-        raise ValueError('no crypto/orders.json: run the sizer first')
+        raise ValueError('no ticket yet: run size first (after exit_plan)')
     state = core.read('state/risk.json') or {}
     rows = []
     for i, t in enumerate(tickets, 1):
@@ -178,7 +178,7 @@ def execute(index: int = 1) -> dict:
     now = core.now_ms()
     tickets = core.read('orders.json') or []
     if not 1 <= index <= len(tickets):
-        raise ValueError(f'no ticket #{index}')
+        raise ValueError(f'no ticket #{index}: run size first (tickets_show lists them)')
     t = tickets[index - 1]
     if not _ready(t, now):
         raise PermissionError('this ticket has no PASS from the risk check today: run risk_check first')
@@ -386,3 +386,23 @@ async def reconcile(client_id: str) -> dict:
             'flatten it or set the stop on the exchange now.')
     return {'status': 'filled', 'filled': o.filled, 'average': o.average, 'stop_on_exchange': bool(stops),
             'text': f'{client_id}: {o.status}, filled {o.filled} @ {o.average}; position recorded.{warn}'}
+
+
+def settings(changes: Optional[dict] = None) -> dict:
+    """Show the settings, or change some of them first (only known keys, checked). Keys are never set here."""
+    import os
+    cfg = core.update_config(changes) if changes else core.load_config()
+    keys = [f'BYTX_{k.upper()}' for k in core.KEY_NAMES if os.environ.get(f'BYTX_{k.upper()}')]
+    r, s = cfg['risk'], cfg['session']
+    text = (f"{'Saved. ' if changes else ''}Mode {cfg['mode']} on {cfg['exchange']}"
+            f"{' (virtual money, live order book)' if cfg['mode'] == 'paper' else ' (exchange demo/testnet)'}, "
+            f"account {cfg['account_usdt']} USDT, leverage {cfg['default_leverage']}x {cfg['margin_mode']}.\n"
+            f"Limits: max loss per trade {r['max_loss_per_trade']}, per day {r['daily_loss_limit']}, "
+            f"{r['max_trades_per_day']} trades a day, reward:risk >= {r['min_rr']}, leverage <= {r['max_leverage']}, "
+            f"notional <= {r['max_notional']}{', blocked ' + ', '.join(r['blocked_symbols']) if r['blocked_symbols'] else ''}.\n"
+            f"Session (UTC): starts {s['start']}, opening range {s['range_minutes']} min on {s['timeframe']} bars, "
+            f"no entries after {s['entry_until'] or 'any time'}, flat by {s['flat_by']}.\n"
+            f"Demo keys in the server environment: {', '.join(keys) if keys else 'none'}"
+            f"{'' if cfg['mode'] != 'demo' or keys else ' — demo needs them, set them in the MCP config, never in chat'}.\n"
+            f"Data folder: {core.home()}")
+    return {'config': cfg, 'home': str(core.home()), 'demo_keys': keys, 'text': text}
