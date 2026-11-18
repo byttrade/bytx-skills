@@ -15,11 +15,22 @@ from typing import Any, Optional
 from . import core
 
 TOKEN_TTL_MS = 300_000
+SENT = ('placed', 'unknown', 'reconciled_filled', 'reconciled_pending')  # an order that may be on the exchange
 FINGERPRINT_KEYS = ('kind', 'symbol', 'side', 'risk_usdt', 'stop', 'take_profit', 'leverage', 'mode', 'size')
 
 
 def fingerprint(t: dict) -> str:
     return hashlib.sha256(json.dumps({k: t.get(k) for k in FINGERPRINT_KEYS}, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def client_id(exchange: str, ticket_id: str) -> str:
+    """One ticket → one client_id, in the exchange's format, so a timeout is reconciled instead of resent."""
+    h = hashlib.sha256(ticket_id.encode()).hexdigest()
+    if exchange == 'hyperliquid':
+        return '0x' + h[:32]
+    if exchange == 'htx':
+        return str(10 ** 17 + int(h, 16) % (9 * 10 ** 17))  # USDT-M wants an integer
+    return ('t-' if exchange == 'gate' else '') + 'bt' + ticket_id[:14]
 
 
 def _today(ms: Optional[int] = None) -> str:
@@ -36,7 +47,8 @@ async def size(risk_usdt: Optional[float] = None, leverage: Optional[float] = No
         raise ValueError('no crypto/plan.json: run the exit planner first')
     risk_usdt = float(risk_usdt or cfg['risk']['max_loss_per_trade'])
     leverage = float(leverage or cfg['default_leverage'])
-    async with core.open_exchange({**cfg, 'mode': 'paper'}, 'trade') as ex:
+    # sized on the account it will trade (paper or demo book); real mode sizes on a paper copy of the live book
+    async with core.open_exchange(cfg if cfg['mode'] in ('paper', 'demo') else {**cfg, 'mode': 'paper'}, 'trade') as ex:
         rp = await ex.risk_size(plan['symbol'], plan['side'], risk_usdt=risk_usdt, stop=plan['stop'],
                                 take_profit=plan['take_profit'], leverage=leverage)
     async with core.open_exchange(cfg, 'data') as ex:
@@ -80,7 +92,8 @@ def check_ticket(t: dict, cfg: dict, log: list[dict], now: int) -> list[str]:
         pos = (core.read('state/broker.json') or {}).get('positions', {})
         return [] if t['symbol'] in pos else ['no open position recorded for this symbol (already closed?)']
     r, why = cfg['risk'], []
-    today = [e for e in log if e['date'] == _today(now) and e['kind'] == 'open' and e['status'] in ('placed', 'unknown')]
+    last = {e['id']: e for e in log if e['date'] == _today(now) and e['kind'] == 'open'}  # latest word per ticket
+    today = [e for e in last.values() if e['status'] in SENT]
     if t['mode'] == 'real' and not cfg.get('allow_real'):
         why.append('real mode is off (allow_real=false)')
     if t['mode'] != cfg['mode']:
@@ -206,7 +219,7 @@ async def confirm(confirm_token: str, user_reply: str) -> dict:
         raise PermissionError('risk check fails now: ' + '; '.join(why))
     if t['mode'] not in ('paper', 'demo'):
         raise PermissionError('real orders are not sent by bytx-trader: use the hosted BYTtrade MCP')
-    cid = f"bt{t['id'][:14]}"  # same ticket → same client_id, so a retry can be reconciled, never duplicated
+    cid = client_id(cfg['exchange'], t['id'])
     from bytx.errors import BytxError, OrderStatusUnknown
     async with core.open_exchange(cfg, 'trade') as ex:
         try:
@@ -218,7 +231,7 @@ async def confirm(confirm_token: str, user_reply: str) -> dict:
                 res = {'status': 'placed' if r.status == 'opened' else 'not_filled', 'filled_size': r.filled_size,
                        'average': r.average, 'risk': r.risk, 'warnings': list(r.warnings)}
         except OrderStatusUnknown as e:
-            _record({**base, 'status': 'unknown', 'client_id': cid})
+            _record({**base, 'status': 'unknown', 'client_id': cid, 'ticket': t})
             return {'status': 'unknown', 'client_id': cid, 'text':
                     f'The exchange did not say whether the order went through ({e}). It is NOT resent. '
                     f'Run reconcile for client_id {cid} before doing anything else.'}
@@ -242,7 +255,17 @@ async def _close(ex: Any, t: dict, cfg: dict) -> dict:
         await ex.set_leverage(t['symbol'], t['position_leverage'] or 1)
         o = await (ex.sell if t['side'] == 'long' else ex.buy)(t['symbol'], size=t['size'])
     else:
-        o = await ex.close_position(t['symbol'])
+        # close only what this pack opened: the account may also hold the user's own or a bot's position
+        from bytx.errors import PositionAlreadyClosed
+        try:
+            o = await (ex.sell if t['side'] == 'long' else ex.buy)(t['symbol'], size=t['size'], reduce_only=True)
+        except PositionAlreadyClosed:
+            o = None
+        if not [p for p in await ex.positions([t['symbol']]) if p.size]:
+            # Binance & co. keep a closed position's separate TP/SL; left there, they would hit the next position
+            await ex.cancel_tp_sl(t['symbol'])
+        if o is None:
+            return {'status': 'no_position', 'filled_size': None, 'average': None}  # already closed on the exchange
     return {'status': 'placed', 'filled_size': getattr(o, 'filled', None), 'average': getattr(o, 'average', None)}
 
 
@@ -283,6 +306,8 @@ def flatten(symbol: Optional[str] = None) -> dict:
 
 async def positions() -> dict:
     cfg = core.load_config()
+    if cfg['mode'] != 'paper':
+        return await _exchange_positions(cfg)
     pos = (core.read('state/broker.json') or {}).get('positions', {})
     rows = []
     if pos:
@@ -303,6 +328,32 @@ async def positions() -> dict:
     return {'rows': rows, 'text': f'{text}\n{note}' if rows and note else text}
 
 
+async def _exchange_positions(cfg: dict) -> dict:
+    """Demo: the exchange is the truth. A recorded position the exchange no longer has was closed there
+    (stop, take-profit, liquidation or by hand) and is dropped from the record."""
+    st = core.read('state/broker.json') or {'log': [], 'positions': {}}
+    rows, lines = [], []
+    async with core.open_exchange(cfg, 'trade') as ex:
+        live = {p.symbol: p for p in await ex.positions() if p.size}
+        for sym in [s for s in st['positions'] if s not in live]:
+            st['positions'].pop(sym)
+            left = await ex.tp_sl_orders(sym)
+            if left:  # the other half of a bracket outlives the position on some exchanges: it would hit the next one
+                await ex.cancel_tp_sl(sym)
+            lines.append(f'{sym}: closed on the exchange (stop, take-profit, liquidation or by hand); removed from the '
+                         f'record' + (f', {len(left)} leftover TP/SL order(s) canceled' if left else ''))
+    for sym, p in live.items():
+        mine = sym in st['positions']
+        rows.append({'symbol': sym, 'side': p.side, 'size': p.size, 'entry': p.entry_price, 'mark': p.mark_price,
+                     'unrealized_pnl': p.unrealized_pnl, 'liquidation': p.liquidation_price, 'opened_here': mine})
+        lines.append(f"{sym} {p.side} {p.size} @ {p.entry_price}: mark {p.mark_price}, PnL {p.unrealized_pnl}, "
+                     f"liquidation {p.liquidation_price}" + ('' if mine else ' (not opened by bytx-trader)')
+                     + (f" (bytx-trader opened {st['positions'][sym]['size']} of it)"
+                        if mine and abs(st['positions'][sym]['size'] - p.size) > 1e-12 else ''))
+    core.write('state/broker.json', st)
+    return {'rows': rows, 'text': '\n'.join(lines) or 'no open positions on the exchange'}
+
+
 async def reconcile(client_id: str) -> dict:
     """Find an order whose outcome was unknown, by its client_id. Never resends."""
     cfg = core.load_config()
@@ -311,7 +362,27 @@ async def reconcile(client_id: str) -> dict:
         raise ValueError(f'no order with client_id {client_id} in the log')
     if cfg['mode'] == 'paper':
         return {'status': entry['status'], 'text': 'paper orders never reach an exchange; nothing to reconcile'}
+    from bytx.errors import OrderNotFound
+    t = entry.get('ticket') or {}
     async with core.open_exchange(cfg, 'trade') as ex:
-        o = await ex.order(entry['symbol'], client_id=client_id)
-    _record({**entry, 'status': 'reconciled', 'order_status': o.status, 'at': core.now_ms()})
-    return {'order_status': o.status, 'filled': o.filled, 'text': f'{client_id}: {o.status}, filled {o.filled}'}
+        try:
+            o = await ex.order(entry['symbol'], client_id=client_id)
+        except OrderNotFound:
+            o = None
+        stops = [x for x in await ex.tp_sl_orders(entry['symbol'])
+                 if x.kind in ('stop_loss', 'tp_sl') and x.state in ('open', None)] if o and o.filled else []
+    rec = dict(entry)  # keeps the ticket, so a second reconcile still knows the plan
+    if o is None or (not o.filled and o.status in ('canceled', 'rejected', 'expired')):
+        _record({**rec, 'status': 'reconciled_none', 'at': core.now_ms()})
+        return {'status': 'not_on_exchange', 'text': f'{client_id}: the order is not on the exchange and nothing '
+                                                     'filled. The ticket may be checked and sent again.'}
+    if not o.filled:
+        _record({**rec, 'status': 'reconciled_pending', 'order_status': o.status, 'at': core.now_ms()})
+        return {'status': 'pending', 'text': f'{client_id}: on the exchange, {o.status}, nothing filled yet'}
+    _record({**rec, 'status': 'reconciled_filled', 'order_status': o.status, 'at': core.now_ms()})
+    if entry['kind'] == 'open' and t:
+        _set_position(t, {'filled_size': o.filled, 'average': o.average})
+    warn = ('' if stops else ' WARNING: no stop-loss found on the exchange for this position — '
+            'flatten it or set the stop on the exchange now.')
+    return {'status': 'filled', 'filled': o.filled, 'average': o.average, 'stop_on_exchange': bool(stops),
+            'text': f'{client_id}: {o.status}, filled {o.filled} @ {o.average}; position recorded.{warn}'}

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bytx-trader"
-version = "0.1.0"
+version = "0.1.1"
 description = "Crypto trading steps for AI assistants on bytx: scanner, funding/OI, entry, exit, time machine, risk-based size, risk gate, paper/demo broker. MCP server + CLI."
 readme = "README.md"
 license = "MIT"

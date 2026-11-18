@@ -15,6 +15,7 @@ DEFAULT_CONFIG: dict = {
     'exchange': 'binance',
     'account_usdt': 1000,          # paper balance and the cash check
     'default_leverage': 5,
+    'margin_mode': 'isolated',     # a loss can't exceed the position's margin; the liquidation check is per position
     'session': {                   # all times UTC; crypto trades 24/7, so the "session" is yours to pick
         'start': '00:00',
         'range_minutes': 60,
@@ -31,7 +32,7 @@ DEFAULT_CONFIG: dict = {
         'max_notional': 5000,
         'blocked_symbols': [],
     },
-    'scanner': {'top': 30},
+    'scanner': {'top': 30, 'fresh_bars': 6},  # a breakout older than 6 bars is not a setup any more
 }
 
 
@@ -112,6 +113,9 @@ def iso(ms: Optional[int]) -> Optional[str]:
 
 # ─── exchanges ───────────────────────────────────────────────────────────
 
+KEY_NAMES = ('api_key', 'secret', 'password', 'wallet_address', 'private_key')  # read from BYTX_<NAME>
+
+
 def _create(name: str, **kw: Any) -> Any:
     from bytx import create_exchange
     return create_exchange(name, **kw)
@@ -121,18 +125,21 @@ def _create(name: str, **kw: Any) -> Any:
 def open_exchange(cfg: dict, kind: str) -> Any:
     """kind: 'data' — public data, no keys; 'trade' — the account of cfg['mode']; 'spot' — public spot data."""
     name = cfg['exchange']
+    demo = cfg['mode'] == 'demo'  # testnets (Hyperliquid…) have their own prices: plan on the market you trade
     if kind == 'data':
-        return _create(name)
+        return _create(name, demo=demo)
     if kind == 'spot':
-        return _create(name, market='spot')
+        return _create(name, market='spot', demo=demo)
     mode = cfg['mode']
     if mode == 'paper':
         from bytx.paper import PaperConfig
-        return _create(name, paper=True, paper_config=PaperConfig(balance={'USDT': float(cfg['account_usdt'])}))
+        return _create(name, paper=True, margin_mode=cfg['margin_mode'],
+                       paper_config=PaperConfig(balance={'USDT': float(cfg['account_usdt'])}))
     if mode == 'demo':
-        keys = {k: os.environ.get(f'BYTX_{k.upper()}') for k in ('api_key', 'secret', 'password')}
-        if not keys['api_key'] or not keys['secret']:
-            raise RuntimeError('demo mode needs BYTX_API_KEY and BYTX_SECRET (and BYTX_PASSWORD for OKX/KuCoin/Bitget) '
-                               'in the environment. Never paste keys into the chat.')
-        return _create(name, demo=True, **{k: v for k, v in keys.items() if v})
+        keys = {k: os.environ.get(f'BYTX_{k.upper()}') for k in KEY_NAMES}
+        if not (keys['api_key'] and keys['secret']) and not (keys['wallet_address'] and keys['private_key']):
+            raise RuntimeError('demo mode needs BYTX_API_KEY and BYTX_SECRET (+ BYTX_PASSWORD for OKX/KuCoin/Bitget), '
+                               'or BYTX_WALLET_ADDRESS and BYTX_PRIVATE_KEY for Hyperliquid, in the environment. '
+                               'Never paste keys into the chat.')
+        return _create(name, demo=True, margin_mode=cfg['margin_mode'], **{k: v for k, v in keys.items() if v})
     raise RuntimeError(f"mode {mode!r} is not executed by bytx-trader; real orders go through the hosted BYTtrade MCP")

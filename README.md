@@ -82,7 +82,7 @@ Crypto trades 24/7, so the "session" is yours: `crypto/config.json` → `session
 | mode | how | keys |
 |---|---|---|
 | **paper** (default) | live order book, virtual balance `account_usdt`, real taker fees | none |
-| **demo** | `"mode": "demo"`: the exchange's demo/testnet | `BYTX_API_KEY`, `BYTX_SECRET` (`BYTX_PASSWORD` for OKX, KuCoin, Bitget) in the server's environment |
+| **demo** | `"mode": "demo"`: the exchange's demo/testnet | `BYTX_API_KEY`, `BYTX_SECRET` (`BYTX_PASSWORD` for OKX, KuCoin, Bitget; `BYTX_WALLET_ADDRESS`, `BYTX_PRIVATE_KEY` for Hyperliquid) in the server's environment |
 | **real** | not sent by this package: real orders go through the hosted [BYTtrade](https://byttrade.com) MCP | kept by BYTtrade |
 
 Every order, in every mode, passes three gates, enforced in the code:

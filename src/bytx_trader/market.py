@@ -90,7 +90,8 @@ async def scan(top: Optional[int] = None, symbols: Optional[list[str]] = None) -
             st = orb_state(bs, win, tf, now)
             r = rsi([b[4] for b in closed(bs, tf, now)])
             setups = []
-            if st['status'] == 'triggered':
+            fresh = cfg['scanner']['fresh_bars'] * tf
+            if st['status'] == 'triggered' and now - (st['trigger_ts'] + tf) <= fresh:
                 setups.append(f"orb_{st['side']}")
             if r is not None and r < 30:
                 setups.append('oversold')
@@ -217,13 +218,14 @@ async def exit_plan(symbol: str, stop: str = 'range-mid', target_r: float = 2.0,
     async with core.open_exchange(cfg, 'data') as ex:
         sym = (await ex.market(symbol)).symbol
         bs = await _session_bars(ex, sym, cfg, win)
-        last = (await ex.ticker(sym)).last
+        tk = await ex.ticker(sym)
     orb = (core.read('entry.json') or {}).get(sym) or orb_state(bs, win, tf, core.now_ms())
     side = side or orb.get('side')
     if side not in ('long', 'short'):
         raise ValueError('no side: the entry has not triggered; pass side=long|short')
     fresh = orb.get('side') == side and core.now_ms() - orb.get('trigger_ts', 0) <= 3 * tf  # trigger bar just closed
-    entry = entry or (orb['trigger_close'] if fresh else last)  # a stale trigger is planned from the price now
+    fill = (tk.ask if side == 'long' else tk.bid) or tk.last  # a market entry fills at the far side of the book
+    entry = entry or (orb['trigger_close'] if fresh else fill)  # a stale trigger is planned from the price now
     if stop in ('range-mid', 'range') and 'range_mid' not in orb:
         raise ValueError('the opening range is not formed yet; use stop=atr:K or a price')
     stop_px = stop_from(stop, side, entry, orb, atr(closed(bs, tf, core.now_ms())))
