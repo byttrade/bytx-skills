@@ -19,7 +19,8 @@
 не нужно. Без uv: `pip install bytx-trader` и команда `bytx-trader-mcp`. Дальше просто говорите с ассистентом:
 «просканируй крипторынок», «переключись на Bybit, риск 5 долларов на сделку», «спланируй лонг по ETH со стопом 1,5 ATR»,
 «какие у меня позиции». Символы — как угодно (`BTC`, `btcusdt`, `BTC/USDT`); настройки показывает и меняет инструмент
-`settings`, данные лежат в `~/bytx-trader`. Можно начать и с промпта сервера
+`settings`, данные лежат в `~/bytx-trader`. Claude Desktop пишет, что сервер не запустился? Он может не видеть `uvx` — укажите в
+`"command"` полный путь из `which uvx`. Можно начать и с промпта сервера
 `trade_pipeline`. Инструмент `confirm` держите в режиме «спрашивать каждый раз».
 
 **Только Claude, дополнительно:** `/plugin marketplace add byttrade/bytx-skills`, `/plugin install bytx-trader@bytx-skills`

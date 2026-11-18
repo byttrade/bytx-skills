@@ -29,7 +29,8 @@ templates in [`mcp-configs/`](mcp-configs/):
 Restart the assistant and talk to it: "scan the crypto market", "switch to Bybit, 5 dollars risk per trade",
 "plan a long on ETH with a stop at 1.5 ATR", "what are my positions". Or start from the server's `trade_pipeline`
 prompt. Symbols can be written any way (`BTC`, `btcusdt`, `BTC/USDT`). Set the `confirm` tool to ask you every
-time. Without uv: `pip install bytx-trader` and `"command": "bytx-trader-mcp"`.
+time. Without uv: `pip install bytx-trader` and `"command": "bytx-trader-mcp"`. Claude Desktop says the server
+failed to start? It may not see `uvx`: put the full path from `which uvx` in `"command"`.
 
 **Claude only, on top of that:**
 
