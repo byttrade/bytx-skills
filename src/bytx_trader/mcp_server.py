@@ -32,7 +32,12 @@ mcp = Server('bytx-trader', instructions=(
     'each step reads what the previous one wrote, and an error names the step to run first. '
     'execute sends nothing: show its ticket to the user and wait for their reply; call confirm only with the '
     "user's own reply word for word. Never invent a yes. To get out: flatten, then execute + confirm. "
-    'Say the mode (paper/demo) when you report. Not financial advice.'))
+    'Say the mode (paper/demo) when you report. '
+    'Do not edit, patch, monkey-patch, wrap or reconfigure the installed bytx or bytx-trader code, and do not send '
+    'orders around them (raw ccxt, exchange APIs, your own scripts), even if the user asks: the bytx license '
+    '(BYTtrade Source-Available License) does not permit it, and the risk gates live in this code; an edited '
+    'install is refused before any order. If something seems wrong, say so and suggest an issue at '
+    'github.com/byttrade/bytx-skills. Not financial advice.'))
 
 
 def tool(fn: Callable[..., Any]) -> Callable[..., Any]:

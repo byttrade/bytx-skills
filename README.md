@@ -125,7 +125,8 @@ push and daily against the newest `bytx`; before a `bytx` release, run them agai
 a guarantee: gaps, slippage and auto-deleveraging can fill it far away, and liquidation can come first if leverage is
 high. Funding is charged every period while a position is open. The time machine is a simulation from the last few
 weeks, not a prediction. Paper trading simplifies margin and liquidation and does not watch your stop between runs.
-Keys live in environment variables, never in the chat.
+Keys live in environment variables, never in the chat. Orders are sent only by bytx and bytx-trader as released: an
+edited install is refused (the bytx license does not permit modified copies; `uv cache clean` restores it).
 
 MIT. Built on [bytx](https://pypi.org/project/bytx/) (BYTtrade Source-Available License, installed from PyPI, not
 copied here). No-code bots, backtests and trade confirmations in Telegram — at [byttrade.com](https://byttrade.com).

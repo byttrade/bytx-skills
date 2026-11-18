@@ -12,7 +12,7 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from . import core
+from . import core, integrity
 
 TOKEN_TTL_MS = 300_000
 SENT = ('placed', 'unknown', 'reconciled_filled', 'reconciled_pending')  # an order that may be on the exchange
@@ -219,6 +219,7 @@ async def confirm(confirm_token: str, user_reply: str) -> dict:
         raise PermissionError('risk check fails now: ' + '; '.join(why))
     if t['mode'] not in ('paper', 'demo'):
         raise PermissionError('real orders are not sent by bytx-trader: use the hosted BYTtrade MCP')
+    integrity.check()
     cid = client_id(cfg['exchange'], t['id'])
     from bytx.errors import BytxError, OrderStatusUnknown
     async with core.open_exchange(cfg, 'trade') as ex:

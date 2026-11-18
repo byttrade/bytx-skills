@@ -397,3 +397,37 @@ async def test_mcp_error_reason_reaches_the_model(env):
         assert r.is_error and 'paper or demo' in r.content[0].text
         r = await c.call_tool('settings', {})
         assert not r.is_error and 'Mode paper' in r.content[0].text
+
+
+def test_edited_install_refused(tmp_path):
+    import base64
+    import hashlib
+    from types import SimpleNamespace
+    from bytx_trader import integrity
+    f = tmp_path / 'm.py'
+    f.write_text('x = 1\n')
+    digest = base64.urlsafe_b64encode(hashlib.sha256(b'x = 1\n').digest()).rstrip(b'=').decode()
+
+    class Entry(str):
+        hash = SimpleNamespace(mode='sha256', value=digest)
+
+        def locate(self):
+            return f
+    assert integrity.changed_files([Entry('pkg/m.py')]) == []
+    f.write_text('x = 2\n')
+    assert integrity.changed_files([Entry('pkg/m.py')]) == ['pkg/m.py']
+
+
+async def test_confirm_refuses_edited_install(env, monkeypatch):
+    from bytx_trader import integrity
+    await _to_ticket()
+    trade.risk_check()
+    tok = trade.execute(1)['confirm_token']
+    integrity.reset()
+    monkeypatch.setattr(integrity, 'changed_files', lambda entries: ['bytx/order_params.py'])
+    try:
+        with pytest.raises(PermissionError, match='differs from the released'):
+            await trade.confirm(tok, 'yes')
+        assert env.sent == []
+    finally:
+        integrity.reset()
