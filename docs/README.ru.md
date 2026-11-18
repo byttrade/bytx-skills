@@ -12,17 +12,24 @@
 
 ## Установка
 
-```bash
-pip install bytx-trader
-```
+Нужен [uv](https://docs.astral.sh/uv/) (`brew install uv`).
 
-**Любой MCP-клиент** (Claude Desktop, Claude Code, Cursor …): добавить сервер `bytx-trader-mcp` в конфиг клиента,
-шаблоны — в [`mcp-configs/`](../mcp-configs/). Начать с фразы «просканируй крипторынок» или с промпта сервера
+**Любой MCP-клиент** (Claude Desktop, Claude Code, Cursor …): добавить сервер в конфиг клиента, шаблоны —
+в [`mcp-configs/`](../mcp-configs/) (запуск через `uvx --from bytx-trader@latest bytx-trader-mcp`). Без uv:
+`pip install bytx-trader` и команда `bytx-trader-mcp`. Начать с фразы «просканируй крипторынок» или с промпта сервера
 `trade_pipeline`. Инструмент `confirm` держите в режиме «спрашивать каждый раз».
 
 **Только Claude, дополнительно:** `/plugin marketplace add <owner>/bytx-skills`, `/plugin install bytx-trader@bytx-skills`
 или `cp -r bytx-skills/crypto-* ~/.claude/skills/`. Слэш-команды и срабатывание по фразам есть только в Claude;
 все шаги, режимы и проверки работают в любом MCP-клиенте.
+
+## Обновления
+
+При запуске через `uvx` (как в шаблонах) сервер при каждом старте ассистента берёт свежий `bytx-trader` и свежий
+совместимый `bytx`: исправления и новые возможности бирж приходят сами. Несовместимая версия `bytx` сама не приедет —
+набор принимает одну серию (`>=0.2.1,<0.3`), новая серия приходит вместе с проверенным релизом `bytx-trader`.
+При установке через `pip` сервер раз в сутки сверяется с PyPI и в первом ответе подсказывает обновиться
+(`BYTX_TRADER_NO_UPDATE_CHECK=1` — выключить). Скиллы Claude из плагина обновляются вместе с маркетплейсом (`/plugin`).
 
 ## Режимы
 

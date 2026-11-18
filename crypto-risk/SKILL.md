@@ -16,7 +16,7 @@ and check again. Limits live in `crypto/config.json` under `risk`; only the user
 ## How to run it
 
 If the `bytx-trader` MCP server is connected, call its tool `risk_check`. Otherwise run the CLI
-(`pip install bytx-trader` once):
+(`pip install -U bytx-trader`, or prefix each command with `uvx --from bytx-trader@latest` to always run the newest):
 
 ```bash
 bytx-trader risk

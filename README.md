@@ -14,20 +14,21 @@ Paper trading runs on the exchange's live order book with virtual money: no keys
 
 ## Install
 
-```bash
-pip install bytx-trader
-```
+You need [uv](https://docs.astral.sh/uv/) (`brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`).
 
 **Any MCP client** (Claude Desktop, Claude Code, Cursor, …): add the server to the client's MCP config —
 templates in [`mcp-configs/`](mcp-configs/):
 
 ```json
-{ "mcpServers": { "bytx-trader": { "command": "bytx-trader-mcp",
-  "env": { "BYTX_TRADER_HOME": "/absolute/path/to/your/project/crypto" } } } }
+{ "mcpServers": { "bytx-trader": {
+    "command": "uvx",
+    "args": ["--refresh-package", "bytx", "--refresh-package", "bytx-trader",
+             "--from", "bytx-trader@latest", "bytx-trader-mcp"],
+    "env": { "BYTX_TRADER_HOME": "/absolute/path/to/your/project/crypto" } } } }
 ```
 
 Then ask "scan the crypto market" or start from the server's `trade_pipeline` prompt. Set the `confirm` tool to ask
-you every time.
+you every time. Without uv: `pip install bytx-trader` and `"command": "bytx-trader-mcp"`.
 
 **Claude only, on top of that:**
 
@@ -93,6 +94,15 @@ Every order, in every mode, passes three gates, enforced in the code:
 
 The client order id comes from the ticket, so if the exchange times out the order is found by that id with
 `reconcile` — it is never sent twice. Getting out (`flatten`) is never blocked by daily limits.
+
+## Updates
+
+Started with `uvx` as above, the server picks up the newest `bytx-trader` and the newest compatible `bytx` every time
+your assistant starts it: fixes and new exchange features arrive with no action on your side. `bytx-trader` accepts
+`bytx` within one series (`>=0.2.1,<0.3`), so a breaking `bytx` release never arrives on its own: it comes with a
+`bytx-trader` release that was tested against it. Installed with `pip`, the server checks PyPI once a day and tells you
+in its first answer when an update is out (`BYTX_TRADER_NO_UPDATE_CHECK=1` turns that off). Claude skills installed as
+a plugin update with the marketplace (`/plugin`).
 
 ## Development
 

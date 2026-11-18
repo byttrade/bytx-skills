@@ -17,7 +17,7 @@ cascade or exchange outage. Candles are cached on disk by bytx, so re-runs are f
 ## How to run it
 
 If the `bytx-trader` MCP server is connected, call its tool `timemachine`. Otherwise run the CLI
-(`pip install bytx-trader` once):
+(`pip install -U bytx-trader`, or prefix each command with `uvx --from bytx-trader@latest` to always run the newest):
 
 ```bash
 bytx-trader timemachine --days 30

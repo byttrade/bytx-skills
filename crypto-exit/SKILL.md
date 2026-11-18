@@ -15,7 +15,7 @@ time machine and the sizer read. A stop is a plan, not a guarantee: in a fast ma
 ## How to run it
 
 If the `bytx-trader` MCP server is connected, call its tool `exit_plan`. Otherwise run the CLI
-(`pip install bytx-trader` once):
+(`pip install -U bytx-trader`, or prefix each command with `uvx --from bytx-trader@latest` to always run the newest):
 
 ```bash
 bytx-trader exit BTC/USDT --stop range-mid --target-r 2

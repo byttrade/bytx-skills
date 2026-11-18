@@ -16,7 +16,7 @@ loss at the stop, only the margin and how close liquidation is: say that. Perpet
 ## How to run it
 
 If the `bytx-trader` MCP server is connected, call its tool `size`. Otherwise run the CLI
-(`pip install bytx-trader` once):
+(`pip install -U bytx-trader`, or prefix each command with `uvx --from bytx-trader@latest` to always run the newest):
 
 ```bash
 bytx-trader size --risk-usdt 10 --leverage 5

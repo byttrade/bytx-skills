@@ -9,7 +9,7 @@ description = "Crypto trading steps for AI assistants on bytx: scanner, funding/
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-dependencies = ["bytx>=0.2.1", "mcp>=1.2"]
+dependencies = ["bytx>=0.2.1,<0.3", "mcp>=1.2"]  # <0.3: a breaking bytx needs a bytx-trader release first
 keywords = ["crypto", "trading", "mcp", "claude", "paper-trading", "bytx"]
 
 [project.optional-dependencies]

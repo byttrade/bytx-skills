@@ -16,7 +16,7 @@ Only closed bars count: a bar still forming never triggers. To watch, call it ag
 ## How to run it
 
 If the `bytx-trader` MCP server is connected, call its tool `entry_check`. Otherwise run the CLI
-(`pip install bytx-trader` once):
+(`pip install -U bytx-trader`, or prefix each command with `uvx --from bytx-trader@latest` to always run the newest):
 
 ```bash
 bytx-trader entry BTC/USDT

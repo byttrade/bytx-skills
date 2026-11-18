@@ -26,7 +26,7 @@ keys in the chat. Real orders are not sent by this pack: they go through the hos
 ## How to run it
 
 If the `bytx-trader` MCP server is connected, call its tools `tickets_show`, `execute`, `confirm`, `positions`, `flatten`, `reconcile`. Otherwise run the CLI
-(`pip install bytx-trader` once):
+(`pip install -U bytx-trader`, or prefix each command with `uvx --from bytx-trader@latest` to always run the newest):
 
 ```bash
 bytx-trader show                 # tickets, READY or not

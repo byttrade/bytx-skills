@@ -1,8 +1,16 @@
 {
   "mcpServers": {
     "bytx-trader": {
-      "command": "bytx-trader-mcp",
-      "args": [],
+      "command": "uvx",
+      "args": [
+        "--refresh-package",
+        "bytx",
+        "--refresh-package",
+        "bytx-trader",
+        "--from",
+        "bytx-trader@latest",
+        "bytx-trader-mcp"
+      ],
       "env": {
         "BYTX_TRADER_HOME": "/absolute/path/to/your/project/crypto"
       }

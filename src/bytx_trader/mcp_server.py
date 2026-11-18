@@ -8,7 +8,14 @@ try:  # mcp 2.x renamed FastMCP to MCPServer; keep both working
 except ImportError:  # mcp 1.x
     from mcp.server.fastmcp import FastMCP as Server
 
-from . import market, trade
+from . import market, trade, updates
+
+_pending = {'notice': None}  # set once at start, shown with the first tool result
+
+
+def _note(res: dict) -> dict:
+    msg, _pending['notice'] = _pending['notice'], None
+    return {**res, 'update_notice': msg, 'text': f"{msg}\n\n{res['text']}"} if msg else res
 
 mcp = Server('bytx-trader', instructions=(
     'Crypto trading steps on the bytx library. Paper trading by default (live order book, virtual money). '
@@ -21,20 +28,20 @@ mcp = Server('bytx-trader', instructions=(
 async def scan(top: Optional[int] = None, symbols: Optional[list[str]] = None) -> dict:
     """Scan the top perpetuals by 24h volume (or given symbols) for setups: opening-range breakout of the session,
     RSI oversold/overbought. Writes crypto/scan.json."""
-    return await market.scan(top, symbols)
+    return _note(await market.scan(top, symbols))
 
 
 @mcp.tool()
 async def derivs(symbols: Optional[list[str]] = None) -> dict:
     """Funding rate (now and 7-day average), open interest and its change since the last run, perp/spot basis,
     with flags like crowded_long / oi_up_price_down. Defaults to crypto/watchlist.json or the scanner's hits."""
-    return await market.derivs(symbols)
+    return _note(await market.derivs(symbols))
 
 
 @mcp.tool()
 async def entry_check(symbol: str) -> dict:
     """Is the opening-range breakout on: waiting, triggered (first closed bar beyond the range), expired or forming."""
-    return await market.entry_check(symbol)
+    return _note(await market.entry_check(symbol))
 
 
 @mcp.tool()
@@ -42,66 +49,66 @@ async def exit_plan(symbol: str, stop: str = 'range-mid', target_r: float = 2.0,
                     entry: Optional[float] = None) -> dict:
     """Stop and target before entering. stop: range-mid | range | atr:K | a price; target in R multiples;
     flat-by time from the session config. Writes crypto/plan.json."""
-    return await market.exit_plan(symbol, stop, target_r, side, entry)
+    return _note(await market.exit_plan(symbol, stop, target_r, side, entry))
 
 
 @mcp.tool()
 async def timemachine(days: int = 30, runs: int = 10_000, seed: int = 19) -> dict:
     """Replay the rest of the session `runs` times from the symbol's own past bars at the same time of day, and
     re-run the same rule on each past session. Odds of target/stop/neither. A simulation, not a prediction."""
-    return await market.timemachine(days, runs, seed)
+    return _note(await market.timemachine(days, runs, seed))
 
 
 @mcp.tool()
 async def size(risk_usdt: Optional[float] = None, leverage: Optional[float] = None) -> dict:
     """Position size from the money at risk and the plan's stop (fees included), margin, liquidation estimate,
     funding cost. Places nothing. Writes the ticket to crypto/orders.json."""
-    return await trade.size(risk_usdt, leverage)
+    return _note(await trade.size(risk_usdt, leverage))
 
 
 @mcp.tool()
 def risk_check() -> dict:
     """PASS or BLOCK every ticket against the user's limits (loss per trade, daily limit, trades per day,
     reward:risk, leverage, notional, liquidation vs stop, entry window, duplicates, mode)."""
-    return trade.risk_check()
+    return _note(trade.risk_check())
 
 
 @mcp.tool()
 def tickets_show() -> dict:
     """The tickets in plain words, READY (passed the risk check today) or not."""
-    return trade.tickets_show()
+    return _note(trade.tickets_show())
 
 
 @mcp.tool()
 def execute(index: int = 1) -> dict:
     """Prepare ticket #index for sending. SENDS NOTHING: returns the ticket and a one-time confirm_token (5 min).
     Show the ticket to the user and ask yes or no for exactly this order."""
-    return trade.execute(index)
+    return _note(trade.execute(index))
 
 
 @mcp.tool()
 async def confirm(confirm_token: str, user_reply: str) -> dict:
     """Send the ticket of confirm_token. user_reply must be the user's own message word for word; anything but a
     plain yes cancels. The risk check runs again. Paper and demo only; real orders go through the hosted BYTtrade MCP."""
-    return await trade.confirm(confirm_token, user_reply)
+    return _note(await trade.confirm(confirm_token, user_reply))
 
 
 @mcp.tool()
 def flatten(symbol: Optional[str] = None) -> dict:
     """Write close tickets for the open positions (all or one symbol). They still need execute + confirm."""
-    return trade.flatten(symbol)
+    return _note(trade.flatten(symbol))
 
 
 @mcp.tool()
 async def positions() -> dict:
     """Positions opened through this server, marked to market, with stop/target/flat-by warnings."""
-    return await trade.positions()
+    return _note(await trade.positions())
 
 
 @mcp.tool()
 async def reconcile(client_id: str) -> dict:
     """Look up an order whose outcome was unknown (timeout) by its client_id. Never resends it."""
-    return await trade.reconcile(client_id)
+    return _note(await trade.reconcile(client_id))
 
 
 @mcp.prompt()
@@ -115,6 +122,7 @@ def trade_pipeline(symbol: str = '') -> str:
 
 
 def main() -> None:
+    _pending['notice'] = updates.notice()
     mcp.run()
 
 

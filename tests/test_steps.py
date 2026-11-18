@@ -193,3 +193,33 @@ async def test_readme_example(env, monkeypatch):
     assert {k: tm['monte_carlo'][k] for k in ('target', 'stop', 'open')} == {'target': 37.6, 'stop': 62.4, 'open': 0.0}
     assert tm['history'] == {'fired': 30, 'target': 9, 'stop': 21, 'open': 0}
     assert tm['expectancy_r'] == {'monte_carlo': 0.13, 'history': -0.1}
+
+
+def test_update_notice(tmp_path, monkeypatch):
+    from importlib.metadata import version
+    from bytx_trader import updates
+    monkeypatch.setattr(updates, 'CACHE', tmp_path / 'update.json')
+    mine, lib = version('bytx-trader'), version('bytx')
+    major, minor = (int(x) for x in lib.split('.')[:2])
+    rel = {'bytx-trader': [mine, '99.0.0', '100.0.0rc1'], 'bytx': [lib, f'{major}.{minor}.999', f'{major}.{minor + 1}.0']}
+    msg = updates.notice(lambda name: rel[name], now=1000)
+    assert 'bytx-trader 99.0.0' in msg and f'bytx {major}.{minor}.999' in msg
+    assert 'rc1' not in msg and f'{major}.{minor + 1}.0' not in msg   # no pre-releases, no new series
+    assert updates.notice(lambda name: [], now=2000) == msg            # cached for a day
+    monkeypatch.setattr(updates, 'CACHE', tmp_path / 'other.json')
+    assert updates.notice(lambda name: {'bytx-trader': [mine], 'bytx': [lib]}[name], now=1000) is None
+
+    def offline(name):
+        raise OSError('no network')
+    monkeypatch.setattr(updates, 'CACHE', tmp_path / 'third.json')
+    assert updates.notice(offline, now=1000) is None
+
+
+async def test_mcp_shows_notice_once(env, monkeypatch):
+    from mcp.client.client import Client
+    from bytx_trader import mcp_server
+    monkeypatch.setitem(mcp_server._pending, 'notice', 'Update available: bytx 0.2.9')
+    async with Client(mcp_server.mcp) as c:
+        first = (await c.call_tool('tickets_show', {})).content[0].text
+        second = (await c.call_tool('tickets_show', {})).content[0].text
+    assert 'Update available' in first and 'Update available' not in second

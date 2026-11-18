@@ -17,7 +17,7 @@ hours ago is stale. Writes `crypto/scan.json`, which `crypto-derivs` uses when n
 ## How to run it
 
 If the `bytx-trader` MCP server is connected, call its tool `scan`. Otherwise run the CLI
-(`pip install bytx-trader` once):
+(`pip install -U bytx-trader`, or prefix each command with `uvx --from bytx-trader@latest` to always run the newest):
 
 ```bash
 bytx-trader scan --top 30
