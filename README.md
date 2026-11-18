@@ -33,7 +33,7 @@ you every time. Without uv: `pip install bytx-trader` and `"command": "bytx-trad
 **Claude only, on top of that:**
 
 ```
-/plugin marketplace add <owner>/bytx-skills
+/plugin marketplace add byttrade/bytx-skills
 /plugin install bytx-trader@bytx-skills
 ```
 

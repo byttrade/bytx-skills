@@ -19,7 +19,7 @@
 `pip install bytx-trader` и команда `bytx-trader-mcp`. Начать с фразы «просканируй крипторынок» или с промпта сервера
 `trade_pipeline`. Инструмент `confirm` держите в режиме «спрашивать каждый раз».
 
-**Только Claude, дополнительно:** `/plugin marketplace add <owner>/bytx-skills`, `/plugin install bytx-trader@bytx-skills`
+**Только Claude, дополнительно:** `/plugin marketplace add byttrade/bytx-skills`, `/plugin install bytx-trader@bytx-skills`
 или `cp -r bytx-skills/crypto-* ~/.claude/skills/`. Слэш-команды и срабатывание по фразам есть только в Claude;
 все шаги, режимы и проверки работают в любом MCP-клиенте.
 

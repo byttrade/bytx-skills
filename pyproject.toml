@@ -12,6 +12,11 @@ requires-python = ">=3.10"
 dependencies = ["bytx>=0.2.1,<0.3", "mcp>=1.2"]  # <0.3: a breaking bytx needs a bytx-trader release first
 keywords = ["crypto", "trading", "mcp", "claude", "paper-trading", "bytx"]
 
+[project.urls]
+Homepage = "https://github.com/byttrade/bytx-skills"
+Repository = "https://github.com/byttrade/bytx-skills"
+Issues = "https://github.com/byttrade/bytx-skills/issues"
+
 [project.optional-dependencies]
 test = ["pytest>=8", "pytest-asyncio>=0.23"]
 
