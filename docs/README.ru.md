@@ -35,7 +35,7 @@
 
 - **paper** (по умолчанию) — живой стакан биржи, виртуальный баланс, реальные комиссии; ключи не нужны.
 - **demo** — `"mode": "demo"` в `crypto/config.json`, ключи demo биржи в окружении сервера (`BYTX_API_KEY`,
-  `BYTX_SECRET`, для OKX/KuCoin/Bitget ещё `BYTX_PASSWORD`). В чат ключи не вставлять.
+  `BYTX_SECRET`, для OKX/KuCoin/Bitget ещё `BYTX_PASSWORD`; для Hyperliquid — `BYTX_WALLET_ADDRESS` и `BYTX_PRIVATE_KEY`). В чат ключи не вставлять.
 - **real** — этот пакет реальные ордера не отправляет: они идут через hosted BYTtrade MCP на [byttrade.com](https://byttrade.com).
 
 Каждый ордер проходит три проверки в коде: PASS риск-проверки для этого тикета; `execute` ничего не отправляет и

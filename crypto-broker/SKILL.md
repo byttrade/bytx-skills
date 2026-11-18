@@ -18,8 +18,9 @@ Three gates, every order, enforced by the code, not by this text:
    pass their reply **word for word** to `confirm`. Never write a yes for them, never reuse a yes from an earlier order;
 3. the client's own approval card: tell the user to keep the `confirm` tool on "Needs approval", never "Always allow".
 
-Demo needs `BYTX_API_KEY`, `BYTX_SECRET` (and `BYTX_PASSWORD` for OKX/KuCoin/Bitget) in the environment: never ask for
-keys in the chat. Real orders are not sent by this pack: they go through the hosted BYTtrade MCP. If an outcome is
+Demo needs `BYTX_API_KEY`, `BYTX_SECRET` (and `BYTX_PASSWORD` for OKX/KuCoin/Bitget; for Hyperliquid
+`BYTX_WALLET_ADDRESS`, `BYTX_PRIVATE_KEY`) in the environment: never ask for keys in the chat. In demo, `positions`
+reads the exchange: a position closed there by its stop or take-profit drops out of the record. Real orders are not sent by this pack: they go through the hosted BYTtrade MCP. If an outcome is
 `unknown`, it is not resent: run `reconcile` with the client_id first. Paper positions are tracked in
 `crypto/state/broker.json`; stop and target are not watched between runs, so check `positions` and flatten.
 

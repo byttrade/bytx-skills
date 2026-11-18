@@ -223,3 +223,133 @@ async def test_mcp_shows_notice_once(env, monkeypatch):
         first = (await c.call_tool('tickets_show', {})).content[0].text
         second = (await c.call_tool('tickets_show', {})).content[0].text
     assert 'Update available' in first and 'Update available' not in second
+
+
+# ─── 0.1.1: fresh setups, demo positions from the exchange, reconcile, keys ─
+
+async def test_scanner_lists_only_fresh_breakouts(env, monkeypatch):
+    from conftest import FakeData
+    stale = await market.scan(symbols=[SYM])            # 13:00, the breakout was at 01:00
+    assert stale['hits'] == []
+    now = 1794963900000                                  # 01:05, the 01:00 bar just closed
+    monkeypatch.setenv('BYTX_TRADER_NOW_MS', str(now))
+    monkeypatch.setattr(core, 'open_exchange', lambda cfg, kind: FakeData(load_bars(), now))
+    assert (await market.scan(symbols=[SYM]))['hits'][0]['setups'] == ['orb_short']
+
+
+class _Ex:
+    """A demo account stand-in: just what positions() and reconcile() call."""
+
+    def __init__(self, positions=(), order=None, stops=()):
+        self._p, self._o, self._s = list(positions), order, list(stops)
+        self.canceled = []
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return None
+
+    async def positions(self, symbols=None):
+        return self._p
+
+    async def order(self, symbol, client_id=None):
+        if self._o is None:
+            from bytx.errors import OrderNotFound
+            raise OrderNotFound('not found')
+        return self._o
+
+    async def tp_sl_orders(self, symbol):
+        return self._s
+
+    async def cancel_tp_sl(self, symbol):
+        self.canceled.append(symbol)
+        self._s = []
+
+    async def sell(self, symbol, size=None, reduce_only=False):
+        from bytx.errors import PositionAlreadyClosed
+        assert reduce_only
+        raise PositionAlreadyClosed('flat')
+
+
+def _demo_with(monkeypatch, ex):
+    core.write('config.json', {'account_usdt': 5000, 'mode': 'demo'})
+    monkeypatch.setattr(core, 'open_exchange', lambda cfg, kind: ex)
+
+
+async def test_demo_positions_follow_the_exchange(env, monkeypatch):
+    from types import SimpleNamespace as NS
+    core.write('state/broker.json', {'log': [], 'positions': {SYM: {'side': 'long', 'size': 0.03, 'entry': 64000,
+                                                                     'stop': 63700, 'take_profit': 64600, 'mode': 'demo'}}})
+    ex = _Ex(stops=[NS(kind='take_profit', state='open')])   # the TP outlived a stop-out
+    _demo_with(monkeypatch, ex)
+    out = await trade.positions()
+    assert 'closed on the exchange' in out['text'] and core.read('state/broker.json')['positions'] == {}
+    assert ex.canceled == [SYM] and '1 leftover' in out['text']
+    eth = NS(symbol='ETH/USDT:USDT', side='short', size=1.0, entry_price=1800, mark_price=1790,
+             unrealized_pnl=10.0, liquidation_price=2100)
+    _demo_with(monkeypatch, _Ex(positions=[eth]))
+    assert 'not opened by bytx-trader' in (await trade.positions())['text']
+
+
+def _unknown_entry(t):
+    return {'id': t['id'], 'kind': 'open', 'symbol': t['symbol'], 'side': t['side'], 'mode': 'demo', 'risk_usdt': 10,
+            'date': '2026-11-18', 'at': NOW, 'status': 'unknown', 'client_id': trade.client_id('binance', t['id']), 'ticket': t}
+
+
+async def test_reconcile_filled_records_position_and_warns_without_stop(env, monkeypatch):
+    from types import SimpleNamespace as NS
+    t = await _to_ticket()
+    t = {**t, 'mode': 'demo'}
+    core.write('state/broker.json', {'log': [_unknown_entry(t)], 'positions': {}})
+    _demo_with(monkeypatch, _Ex(order=NS(status='closed', filled=0.03, average=64010.0)))
+    out = await trade.reconcile(trade.client_id('binance', t['id']))
+    assert out['status'] == 'filled' and 'no stop-loss' in out['text']
+    assert core.read('state/broker.json')['positions'][SYM]['size'] == 0.03
+    assert any('already sent' in w for w in trade.check_ticket(t, core.load_config(), trade._log(), NOW))
+
+
+async def test_reconcile_not_found_frees_the_ticket(env, monkeypatch):
+    t = {**(await _to_ticket()), 'mode': 'demo'}
+    core.write('state/broker.json', {'log': [_unknown_entry(t)], 'positions': {}})
+    _demo_with(monkeypatch, _Ex(order=None))
+    assert (await trade.reconcile(trade.client_id('binance', t['id'])))['status'] == 'not_on_exchange'
+    assert not any('already sent' in w for w in trade.check_ticket(t, core.load_config(), trade._log(), NOW))
+
+
+def test_demo_keys_from_env(monkeypatch):
+    real = core  # no env fixture here, so open_exchange is the real factory
+    seen = {}
+    monkeypatch.setattr(real, '_create', lambda name, **kw: seen.update(name=name, **kw))
+    for k in real.KEY_NAMES:
+        monkeypatch.delenv(f'BYTX_{k.upper()}', raising=False)
+    cfg = {**real.DEFAULT_CONFIG, 'mode': 'demo', 'exchange': 'hyperliquid'}
+    with pytest.raises(RuntimeError, match='BYTX_WALLET_ADDRESS'):
+        real.open_exchange(cfg, 'trade')
+    monkeypatch.setenv('BYTX_WALLET_ADDRESS', '0xabc')
+    monkeypatch.setenv('BYTX_PRIVATE_KEY', '0xdef')
+    real.open_exchange(cfg, 'trade')
+    assert seen == {'name': 'hyperliquid', 'demo': True, 'margin_mode': 'isolated',
+                    'wallet_address': '0xabc', 'private_key': '0xdef'}
+
+
+async def test_demo_close_cancels_leftover_tp_sl_only_when_flat(env, monkeypatch):
+    from types import SimpleNamespace as NS
+    t = {'kind': 'close', 'symbol': SYM, 'side': 'long', 'size': 0.03}
+    ex = _Ex()
+    _demo_with(monkeypatch, ex)
+    assert (await trade._close(ex, t, core.load_config()))['status'] == 'no_position'
+    assert ex.canceled == [SYM]
+    other = _Ex(positions=[NS(symbol=SYM, size=0.5)])   # someone else's position on the same symbol stays protected
+    assert (await trade._close(other, t, core.load_config()))['status'] == 'no_position'
+    assert other.canceled == []
+
+
+def test_client_id_fits_every_exchange():
+    from bytx.order_params import client_id_format
+    from bytx.testing import CCXT_IDS
+    for name, ccxt_id in CCXT_IDS.items():
+        cid = trade.client_id(name, 'bb2ba5a8e3695a77')
+        assert client_id_format(ccxt_id).fullmatch(cid), (name, cid)
+        assert cid == trade.client_id(name, 'bb2ba5a8e3695a77')       # deterministic
+        assert cid != trade.client_id(name, 'cc2ba5a8e3695a77')
