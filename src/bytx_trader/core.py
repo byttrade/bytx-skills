@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -37,8 +38,76 @@ DEFAULT_CONFIG: dict = {
 
 
 def home() -> Path:
-    """The crypto/ folder every step reads from and writes to."""
-    return Path(os.environ.get('BYTX_TRADER_HOME') or Path.cwd() / 'crypto')
+    """The folder every step reads from and writes to: BYTX_TRADER_HOME, else ./crypto if it exists (a project),
+    else ~/bytx-trader (MCP clients like Claude Desktop start the server in a folder it can't write to)."""
+    env = os.environ.get('BYTX_TRADER_HOME')
+    if env:
+        return Path(env).expanduser()
+    local = Path.cwd() / 'crypto'
+    return local if local.is_dir() else Path.home() / 'bytx-trader'
+
+
+def norm_symbol(cfg: dict, s: str) -> str:
+    """'BTC', 'btc', 'BTCUSDT', 'BTC-USDT', 'BTC/USDT' -> 'BTC/USDT' (USDC on Hyperliquid); bytx finds the perp."""
+    s = s.strip().upper().replace('-', '/').replace('_', '/')
+    if '/' in s:
+        return s
+    for quote in ('USDT', 'USDC'):
+        if s.endswith(quote) and len(s) > len(quote):
+            return f'{s[:-len(quote)]}/{quote}'
+    return f"{s}/{'USDC' if cfg['exchange'] == 'hyperliquid' else 'USDT'}"
+
+
+MODES = ('paper', 'demo')
+EXCHANGES = ('binance', 'bybit', 'okx', 'bingx', 'bitget', 'kucoin', 'gate', 'mexc', 'htx', 'hyperliquid', 'blofin')
+
+
+def _check(path: str, old: Any, new: Any) -> Any:
+    if path == 'mode':
+        if new not in MODES:
+            raise ValueError(f"mode: {' or '.join(MODES)} (real orders go through the hosted BYTtrade MCP, not here)")
+    elif path == 'exchange':
+        if new not in EXCHANGES:
+            raise ValueError(f"exchange: one of {', '.join(EXCHANGES)}")
+    elif path == 'margin_mode':
+        if new not in ('isolated', 'cross'):
+            raise ValueError('margin_mode: isolated or cross')
+    elif path == 'allow_real':
+        raise ValueError('allow_real is not changed from a chat')
+    elif isinstance(old, bool) or isinstance(old, (int, float)):
+        if isinstance(new, bool) or not isinstance(new, (int, float)) or new < 0:
+            raise ValueError(f'{path}: a number >= 0')
+    elif isinstance(old, list):
+        if not isinstance(new, list):
+            raise ValueError(f'{path}: a list')
+    elif path == 'session.timeframe':
+        if new not in ('1m', '3m', '5m', '15m', '30m', '1h'):
+            raise ValueError(f'{path}: 1m, 3m, 5m, 15m, 30m or 1h')
+    elif old is None or isinstance(old, str):  # session times
+        if new is not None and not (isinstance(new, str) and re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d', new)):
+            raise ValueError(f'{path}: a UTC time "HH:MM" like "13:30"' + (' or null' if path == 'session.entry_until' else ''))
+    return new
+
+
+def update_config(changes: dict) -> dict:
+    """Merge changes into config.json, only known keys with valid values. Returns the new config."""
+    cur = load_config()
+    saved = read('config.json', {}) or {}
+
+    def walk(base: dict, default: dict, ch: dict, out: dict, prefix: str) -> None:
+        for k, v in ch.items():
+            path = f'{prefix}{k}'
+            if k not in default:
+                raise ValueError(f"unknown setting {path!r}; known: {', '.join(prefix + x for x in default)}")
+            if isinstance(default[k], dict):
+                if not isinstance(v, dict):
+                    raise ValueError(f'{path}: an object like {{"{next(iter(default[k]))}": …}}')
+                walk(base[k], default[k], v, out.setdefault(k, {}), path + '.')
+            else:
+                out[k] = _check(path, base[k], v)
+    walk(cur, DEFAULT_CONFIG, changes, saved, '')
+    write('config.json', saved)
+    return load_config()
 
 
 def _merge(base: dict, over: dict) -> dict:

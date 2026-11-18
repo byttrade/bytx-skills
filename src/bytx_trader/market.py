@@ -75,6 +75,7 @@ async def scan(top: Optional[int] = None, symbols: Optional[list[str]] = None) -
     cfg = core.load_config()
     win, now, tf = core.session_window(cfg), core.now_ms(), core.tf_ms(cfg['session']['timeframe'])
     async with core.open_exchange(cfg, 'data') as ex:
+        symbols = [core.norm_symbol(cfg, x) for x in symbols or []]
         if not symbols:
             tick = await ex.tickers()
             usdt = [t for s, t in tick.items() if s.endswith('/USDT:USDT') and t.quote_volume]
@@ -121,9 +122,10 @@ FUNDING_HOT = 0.0005  # 0.05 % per funding period: crowded side pays a lot to st
 
 async def derivs(symbols: Optional[list[str]] = None) -> dict:
     cfg = core.load_config()
-    symbols = symbols or core.read('watchlist.json') or [h['symbol'] for h in (core.read('scan.json') or {}).get('hits', [])][:10]
+    symbols = ([core.norm_symbol(cfg, x) for x in symbols or []] or core.read('watchlist.json')
+               or [h['symbol'] for h in (core.read('scan.json') or {}).get('hits', [])][:10])
     if not symbols:
-        raise ValueError('no symbols: pass them, write crypto/watchlist.json, or run the scanner first')
+        raise ValueError('no symbols: pass them, write crypto/watchlist.json, or run scan first')
     prev = (core.read('state/derivs.json') or {}).get('oi', {})
     week_ago = core.now_ms() - 7 * 86_400_000
     rows = []
@@ -177,7 +179,7 @@ async def entry_check(symbol: str) -> dict:
     cfg = core.load_config()
     win, now, tf = core.session_window(cfg), core.now_ms(), core.tf_ms(cfg['session']['timeframe'])
     async with core.open_exchange(cfg, 'data') as ex:
-        sym = (await ex.market(symbol)).symbol
+        sym = (await ex.market(core.norm_symbol(cfg, symbol))).symbol
         st = orb_state(await _session_bars(ex, sym, cfg, win), win, tf, now)
     out = {'symbol': sym, 'at': core.iso(now), **st}
     entry = core.read('entry.json') or {}
@@ -216,7 +218,7 @@ async def exit_plan(symbol: str, stop: str = 'range-mid', target_r: float = 2.0,
     cfg = core.load_config()
     win, tf = core.session_window(cfg), core.tf_ms(cfg['session']['timeframe'])
     async with core.open_exchange(cfg, 'data') as ex:
-        sym = (await ex.market(symbol)).symbol
+        sym = (await ex.market(core.norm_symbol(cfg, symbol))).symbol
         bs = await _session_bars(ex, sym, cfg, win)
         tk = await ex.ticker(sym)
     orb = (core.read('entry.json') or {}).get(sym) or orb_state(bs, win, tf, core.now_ms())
@@ -322,7 +324,7 @@ async def timemachine(days: int = 30, runs: int = 10_000, seed: int = 19) -> dic
     cfg = core.load_config()
     plan = core.read('plan.json')
     if not plan:
-        raise ValueError('no crypto/plan.json: run the exit planner first')
+        raise ValueError('no trade plan yet: run exit_plan for a symbol first')
     tf_s = cfg['session']['timeframe']
     tf, now = core.tf_ms(tf_s), core.now_ms()
     win = core.session_window(cfg)

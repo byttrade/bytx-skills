@@ -12,6 +12,25 @@ from bytx.errors import BytxError
 from . import market, trade
 
 
+def _changes(pairs: list[str]) -> dict:
+    """['risk.max_loss_per_trade=5', 'exchange=bybit'] -> {'risk': {'max_loss_per_trade': 5}, 'exchange': 'bybit'}"""
+    out: dict = {}
+    for pair in pairs:
+        key, sep, raw = pair.partition('=')
+        if not sep:
+            raise ValueError(f'{pair!r}: use key=value, e.g. exchange=bybit')
+        try:
+            value = json.loads(raw)
+        except ValueError:
+            value = raw
+        *path, last = key.split('.')
+        node = out
+        for k in path:
+            node = node.setdefault(k, {})
+        node[last] = value
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog='bytx-trader', description='Crypto trading steps on bytx. Paper by default.')
     p.add_argument('--json', action='store_true', help='print the full JSON result')
@@ -43,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser('flatten', help='close tickets for open positions').add_argument('symbol', nargs='?')
     sub.add_parser('positions', help='recorded positions, marked to market')
     sub.add_parser('reconcile', help='find an order of unknown outcome by client_id').add_argument('client_id')
+    sub.add_parser('settings', help='show settings, or change: settings exchange=bybit risk.max_loss_per_trade=5'
+                   ).add_argument('changes', nargs='*')
     a = p.parse_args(argv)
 
     calls = {
@@ -59,6 +80,7 @@ def main(argv: list[str] | None = None) -> int:
         'flatten': lambda: trade.flatten(a.symbol),
         'positions': trade.positions,
         'reconcile': lambda: trade.reconcile(a.client_id),
+        'settings': lambda: trade.settings(_changes(a.changes)),
     }
     try:
         res = calls[a.cmd]()

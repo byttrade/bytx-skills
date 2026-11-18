@@ -23,12 +23,14 @@ templates in [`mcp-configs/`](mcp-configs/):
 { "mcpServers": { "bytx-trader": {
     "command": "uvx",
     "args": ["--refresh-package", "bytx", "--refresh-package", "bytx-trader",
-             "--from", "bytx-trader@latest", "bytx-trader-mcp"],
-    "env": { "BYTX_TRADER_HOME": "/absolute/path/to/your/project/crypto" } } } }
+             "--from", "bytx-trader@latest", "bytx-trader-mcp"] } } }
 ```
 
-Then ask "scan the crypto market" or start from the server's `trade_pipeline` prompt. Set the `confirm` tool to ask
-you every time. Without uv: `pip install bytx-trader` and `"command": "bytx-trader-mcp"`.
+Restart the assistant and talk to it: "scan the crypto market", "switch to Bybit, 5 dollars risk per trade",
+"plan a long on ETH with a stop at 1.5 ATR", "what are my positions". Or start from the server's `trade_pipeline`
+prompt. Symbols can be written any way (`BTC`, `btcusdt`, `BTC/USDT`). Set the `confirm` tool to ask you every
+time. Without uv: `pip install bytx-trader` and `"command": "bytx-trader-mcp"`. Claude Desktop says the server
+failed to start? It may not see `uvx`: put the full path from `which uvx` in `"command"`.
 
 **Claude only, on top of that:**
 
@@ -58,9 +60,12 @@ or copy the folders: `cp -r bytx-skills/crypto-* ~/.claude/skills/` (or your pro
 | `crypto-size` | `size` | Size from risk with fees, margin, liquidation estimate, funding cost. Places nothing. |
 | `crypto-risk` | `risk_check` | PASS / BLOCK against your limits. |
 | `crypto-broker` | `execute`, `confirm`, `flatten`, `positions`, `reconcile` | The only step that sends anything. |
+| | `settings` | Mode, exchange, account, limits, session — shown, and changed when you ask. |
 
-Crypto trades 24/7, so the "session" is yours: `crypto/config.json` → `session.start` (00:00 UTC by default),
-`range_minutes`, `entry_until`, `flat_by`. Everything lands in `crypto/` and each step reads what the last one wrote.
+Crypto trades 24/7, so the "session" is yours: `session.start` (00:00 UTC by default), `range_minutes`,
+`entry_until`, `flat_by` — ask the assistant to change them, or `bytx-trader settings session.start=13:30`. Everything
+lands in `~/bytx-trader` (a project's own `crypto/` folder if it has one; `BYTX_TRADER_HOME` overrides) and each step
+reads what the last one wrote.
 
 ## An example: BTC on Binance, November 18 2026, real candles
 
@@ -82,7 +87,7 @@ Crypto trades 24/7, so the "session" is yours: `crypto/config.json` → `session
 | mode | how | keys |
 |---|---|---|
 | **paper** (default) | live order book, virtual balance `account_usdt`, real taker fees | none |
-| **demo** | `"mode": "demo"`: the exchange's demo/testnet | `BYTX_API_KEY`, `BYTX_SECRET` (`BYTX_PASSWORD` for OKX, KuCoin, Bitget; `BYTX_WALLET_ADDRESS`, `BYTX_PRIVATE_KEY` for Hyperliquid) in the server's environment |
+| **demo** | "switch to demo" (`settings`): the exchange's demo/testnet | `BYTX_API_KEY`, `BYTX_SECRET` (`BYTX_PASSWORD` for OKX, KuCoin, Bitget; `BYTX_WALLET_ADDRESS`, `BYTX_PRIVATE_KEY` for Hyperliquid) in the server's environment |
 | **real** | not sent by this package: real orders go through the hosted [BYTtrade](https://byttrade.com) MCP | kept by BYTtrade |
 
 Every order, in every mode, passes three gates, enforced in the code:
@@ -120,7 +125,8 @@ push and daily against the newest `bytx`; before a `bytx` release, run them agai
 a guarantee: gaps, slippage and auto-deleveraging can fill it far away, and liquidation can come first if leverage is
 high. Funding is charged every period while a position is open. The time machine is a simulation from the last few
 weeks, not a prediction. Paper trading simplifies margin and liquidation and does not watch your stop between runs.
-Keys live in environment variables, never in the chat.
+Keys live in environment variables, never in the chat. Orders are sent only by bytx and bytx-trader as released: an
+edited install is refused (the bytx license does not permit modified copies; `uv cache clean` restores it).
 
 MIT. Built on [bytx](https://pypi.org/project/bytx/) (BYTtrade Source-Available License, installed from PyPI, not
 copied here). No-code bots, backtests and trade confirmations in Telegram — at [byttrade.com](https://byttrade.com).
