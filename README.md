@@ -110,7 +110,9 @@ a plugin update with the marketplace (`/plugin`).
 pip install -e ".[test]" && pytest
 ```
 
-Tests are offline: real candles in `tests/fixtures/`, orders on `bytx.testing` paper accounts.
+Tests are offline: real candles in `tests/fixtures/`, orders on `bytx.testing` paper accounts. CI runs them on every
+push and daily against the newest `bytx`; before a `bytx` release, run them against the release candidate:
+`gh workflow run tests.yml -R byttrade/bytx-skills -f bytx=git+https://github.com/byttrade/bytx@<branch>`.
 
 ## Fine print
 

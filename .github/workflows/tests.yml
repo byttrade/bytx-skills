@@ -1,0 +1,58 @@
+name: tests
+
+# Users run the newest bytx automatically (uvx @latest), so the pack is tested against it:
+# on every push, every day, and on demand against an unreleased bytx before it ships.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      bytx:
+        description: 'bytx to test instead of the newest release, e.g. git+https://github.com/byttrade/bytx@dev or bytx==0.2.5'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: py${{ matrix.python }}, ${{ inputs.bytx || 'newest bytx allowed (<0.3)' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: install
+        env:
+          BYTX: ${{ inputs.bytx }}
+        run: |
+          pip install -U ".[test]"
+          if [ -n "$BYTX" ]; then pip install --no-deps --force-reinstall "$BYTX"; fi
+          pip show bytx | head -2
+      - run: pytest -q
+
+  next-series:
+    # Informational: does the newest bytx outside the allowed range (the next series) still pass?
+    # Red here means: fix the pack before widening `bytx<0.3`, not that users are broken.
+    if: ${{ !inputs.bytx }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          pip install -U ".[test]"
+          pip install --no-deps -U bytx
+          pip show bytx | head -2
+      - run: pytest -q
