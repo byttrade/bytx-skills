@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "bytx-skills",
+  "description": "Crypto trading skills for AI assistants on bytx",
+  "owner": {"name": "BYTtrade", "url": "https://byttrade.com"},
+  "plugins": [
+    {
+      "name": "bytx-trader",
+      "description": "Crypto trading skills on bytx: scan, funding and open interest, entry, exit, time machine, size, risk, broker (paper by default, never without your yes).",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "mode": "paper",
+  "allow_real": false,
+  "exchange": "binance",
+  "account_usdt": 1000,
+  "default_leverage": 5,
+  "session": {
+    "start": "00:00",
+    "range_minutes": 60,
+    "timeframe": "5m",
+    "entry_until": null,
+    "flat_by": "23:55"
+  },
+  "risk": {
+    "max_loss_per_trade": 10,
+    "daily_loss_limit": 30,
+    "max_trades_per_day": 3,
+    "min_rr": 1.5,
+    "max_leverage": 5,
+    "max_notional": 5000,
+    "blocked_symbols": []
+  },
+  "scanner": {
+    "top": 30
+  }
+}

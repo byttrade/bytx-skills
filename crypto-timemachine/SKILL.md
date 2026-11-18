@@ -1,0 +1,29 @@
+---
+name: crypto-timemachine
+description: >-
+  Time Machine: before risking a dollar, replays the rest of the session 10,000 times from the symbol's own past
+  bars at the same time of day (seeded, repeatable) and re-runs the same rule on every past session. Gives the
+  odds of target first, stop first, or neither. Use when the user says "what are the odds", "is this worth it",
+  "backtest this", "simulate", or after an exit plan.
+argument-hint: "[--days 30] [--runs 10000] [--seed 19]"
+---
+
+# crypto-timemachine
+
+Report the three percentages and the history count plainly, then the verdict. Close to a coin flip is a normal and
+useful answer. It is a simulation, not a prediction: the past 30 days never contained tomorrow's headline, liquidation
+cascade or exchange outage. Candles are cached on disk by bytx, so re-runs are fast.
+
+## How to run it
+
+If the `bytx-trader` MCP server is connected, call its tool `timemachine`. Otherwise run the CLI
+(`pip install bytx-trader` once):
+
+```bash
+bytx-trader timemachine --days 30
+```
+
+State lives in `crypto/` in the project (override with `BYTX_TRADER_HOME`); settings in `crypto/config.json`
+(see `config.example.json` in the pack). The mode is `paper` unless the user changed it: say so.
+
+Not financial advice. Most people who trade actively lose money.
