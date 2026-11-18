@@ -122,3 +122,9 @@ Keys live in environment variables, never in the chat.
 
 MIT. Built on [bytx](https://pypi.org/project/bytx/) (BYTtrade Source-Available License, installed from PyPI, not
 copied here). No-code bots, backtests and trade confirmations in Telegram — at [byttrade.com](https://byttrade.com).
+
+<sub>**All risk is yours.** bytx-skills is a tool, provided as is, without any warranty. You alone decide whether and
+how to use it, and you alone bear every loss, missed profit or other consequence, including those caused by errors in
+the software, the data, an exchange or an AI assistant. Test it yourself — on paper, then on an exchange demo account —
+and only once you are satisfied that it works for you, use it with real money, in amounts you can afford to lose.
+The authors and BYTtrade are not liable for any trading results.</sub>
