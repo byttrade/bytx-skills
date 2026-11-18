@@ -1,7 +1,7 @@
 {
   "name": "bytx-trader",
   "description": "Crypto trading skills on the bytx library: scanner, funding/open interest, entry timer, exit planner, a time machine that replays 10,000 sessions, risk-based sizing, a risk gate and an order executor (paper by default, never without your yes).",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": {
     "name": "BYTtrade",
     "url": "https://byttrade.com"
