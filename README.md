@@ -99,7 +99,7 @@ The client order id comes from the ticket, so if the exchange times out the orde
 
 Started with `uvx` as above, the server picks up the newest `bytx-trader` and the newest compatible `bytx` every time
 your assistant starts it: fixes and new exchange features arrive with no action on your side. `bytx-trader` accepts
-`bytx` within one series (`>=0.2.1,<0.3`), so a breaking `bytx` release never arrives on its own: it comes with a
+`bytx` within one series (`>=0.2.2,<0.3`), so a breaking `bytx` release never arrives on its own: it comes with a
 `bytx-trader` release that was tested against it. Installed with `pip`, the server checks PyPI once a day and tells you
 in its first answer when an update is out (`BYTX_TRADER_NO_UPDATE_CHECK=1` turns that off). Claude skills installed as
 a plugin update with the marketplace (`/plugin`).

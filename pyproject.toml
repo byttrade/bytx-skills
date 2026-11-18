@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bytx-trader"
-version = "0.1.1"
+version = "0.1.2"
 description = "Crypto trading steps for AI assistants on bytx: scanner, funding/OI, entry, exit, time machine, risk-based size, risk gate, paper/demo broker. MCP server + CLI."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-dependencies = ["bytx>=0.2.1,<0.3", "mcp>=1.2"]  # <0.3: a breaking bytx needs a bytx-trader release first
+dependencies = ["bytx>=0.2.2,<0.3", "mcp>=1.2"]  # <0.3: a breaking bytx needs a bytx-trader release first
 keywords = ["crypto", "trading", "mcp", "claude", "paper-trading", "bytx"]
 
 [project.urls]
