@@ -215,6 +215,23 @@ def test_update_notice(tmp_path, monkeypatch):
     assert updates.notice(offline, now=1000) is None
 
 
+def test_update_notice_prerelease(tmp_path, monkeypatch):
+    from bytx_trader import updates
+    assert updates._ver('0.2.6b1') < updates._ver('0.2.6') < updates._ver('0.2.6.1') < updates._ver('0.2.7')
+    monkeypatch.setattr(updates, 'CACHE', tmp_path / 'update.json')
+    monkeypatch.setattr(updates, 'version', lambda name: {'bytx-trader': '0.1.5', 'bytx': '0.2.6b1'}[name])
+    msg = updates.notice(lambda name: {'bytx-trader': ['0.1.5'], 'bytx': ['0.2.5', '0.2.6', '0.2.7b1']}[name], now=1000)
+    assert msg and 'bytx 0.2.6 is out (you run 0.2.6b1)' in msg      # the final release beats its pre-release
+
+
+async def test_mcp_server_reports_package_version(env):
+    from mcp.client.client import Client
+    from bytx_trader import __version__
+    from bytx_trader.mcp_server import mcp
+    async with Client(mcp) as c:
+        assert c.server_info.version == __version__ != ''
+
+
 async def test_mcp_shows_notice_once(env, monkeypatch):
     from mcp.client.client import Client
     from bytx_trader import mcp_server
