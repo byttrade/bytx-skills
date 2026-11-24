@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import urllib.request
 from importlib.metadata import PackageNotFoundError, version
@@ -18,8 +19,14 @@ DAY = 86_400
 
 
 def _ver(s: str) -> Optional[tuple[int, ...]]:
-    parts = s.split('.')
-    return tuple(int(p) for p in parts) if all(p.isdigit() for p in parts) else None  # skips pre-releases
+    """'0.2.6' → (0, 2, 6, 0); a pre-release '0.2.6b1' → (0, 2, 6, -1), below its release. Not a version → None.
+    shortcut: any suffix (b1, rc1, .dev0, .post1) counts as a pre-release; switch to packaging.version if posts appear."""
+    m = re.match(r'(\d+(?:\.\d+)*)(.*)$', s.strip())
+    return tuple(int(p) for p in m[1].split('.')) + ((-1,) if m[2] else (0,)) if m else None
+
+
+def _final(s: str) -> bool:
+    return _ver(s) is not None and _ver(s)[-1] == 0
 
 
 def pypi_releases(name: str) -> list[str]:
@@ -29,7 +36,7 @@ def pypi_releases(name: str) -> list[str]:
 
 
 def newest(releases: list[str], series: Optional[tuple[int, int]] = None) -> Optional[str]:
-    ok = [(_ver(v), v) for v in releases if _ver(v) and (series is None or _ver(v)[:2] == series)]
+    ok = [(_ver(v), v) for v in releases if _final(v) and (series is None or _ver(v)[:2] == series)]  # skips pre-releases
     return max(ok)[1] if ok else None
 
 
